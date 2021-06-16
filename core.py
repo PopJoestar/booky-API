@@ -311,7 +311,7 @@ def get_fiction_book_list(session, url, url_params, ua):
 
             if total_items_container is not None:
                 total_items = int(total_items_container.text.strip().split(" ")[
-                                      0].replace(non_break_space, ''))
+                    0].replace(non_break_space, ''))
                 results.update({
                     'total_item': total_items,
                     'total_pages': math.ceil(total_items / MAX_ITEMS_PER_PAGE)

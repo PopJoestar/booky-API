@@ -1,9 +1,18 @@
-import feedparser
 from bs4 import BeautifulSoup
+from fake_useragent.fake import UserAgent
+import requests
 
-VALID_RSS_LANGUAGE = {'french', 'english'}
+VALID_RSS_LANGUAGE = {'french', 'english', 'français', 'anglais'}
 NON_FICTION_LATEST = "http://libgen.rs/rss/index.php?page=20"
-VALID_EXTENSION = {'pdf', 'epub', 'zip', 'rar', 'azw', 'azw3', 'fb2', 'mobi', 'djvu'}
+FICTION_LATEST = "http://libgen.rs/fiction/rss"
+
+VALID_EXTENSION = {'pdf', 'epub', 'zip', 'rar',
+                   'azw', 'azw3', 'fb2', 'mobi', 'djvu'}
+TIMEOUT = 150
+MAX_REQUEST_DETAILS_TRY = 10
+MAX_REQUEST_TRY = 20
+IMAGE_SOURCE = "https://libgen.is"
+
 
 # get all recently added books
 def get_non_fiction_latest_book_list(user_agent):
@@ -13,8 +22,9 @@ def get_non_fiction_latest_book_list(user_agent):
         'type': 'non-fiction',
         'items': []
     }
+    nbr_of_request = 0
 
-    header = {
+    headers = {
         "user-agent": user_agent.random,
         'Referer': "http://libgen.rs/",
         'Host': 'libgen.rs',
@@ -23,33 +33,129 @@ def get_non_fiction_latest_book_list(user_agent):
     books = []
 
     try:
-        feed = feedparser.parse(NON_FICTION_LATEST, request_headers=header)
+        with requests.session() as session:
+            r = session.get(NON_FICTION_LATEST,
+                            headers=headers, timeout=TIMEOUT)
+            while r.status_code != 200 and nbr_of_request <= MAX_REQUEST_TRY:
+                headers = {
+                    'user-agent': user_agent.random,
+                    'Referer': "http://libgen.rs/",
+                    'Host': 'libgen.rs',
+                    'Connection': 'keep-alive'}
+                r = session.get(NON_FICTION_LATEST,
+                                headers=headers, timeout=TIMEOUT)
+                nbr_of_request = nbr_of_request + 1
 
-        for item in feed.entries:
-            book = {}
-            file_info = get_non_fiction_additionnal_info(item.summary)
-            if file_info != -1:
-                if file_info['language'].lower() in VALID_RSS_LANGUAGE and file_info['extension'].lower() in VALID_EXTENSION:
+        if nbr_of_request <= MAX_REQUEST_TRY:
+            html_text = r.text
+            soup = BeautifulSoup(html_text, 'lxml')
+
+            feed_entries = soup.find_all('item')
+            for item in feed_entries:
+                book = {}
+                file_info = get_non_fiction_additionnal_info(
+                    item.description.text)
+                if file_info != -1:
                     book.update({
-                        'title': item.title.strip(),
+                        'title': item.title.text.strip(),
                         'language': file_info['language'],
                         'size': file_info['size'],
                         'extension': file_info['extension'],
-                        'md5': item.id.strip(),
-                        'image': '',
+                        'md5': item.guid.text.strip(),
                         'nbrOfPages': file_info['nbrOfPages'],
-                        'series': '',
                         'source': '',
-                        'details': None
+                        'details': {
+                            'authors': file_info['authors'],
+                            'type': 'non-fiction',
+                            'publisher': '',
+                            'isbn': file_info['isbn'],
+                            "series": file_info['series'],
+                            'description': "",
+                            "image": file_info['image'],
+                            "download_links": [],
+                            'year': ''
+                        }
                     })
                     books.append(book)
-                if len(books) == 15:
-                    break
-        results.update({
-            'total_item': len(books),
-            'items': books
-        })
+            results.update({
+                'total_item': len(books),
+                'items': books
+            })
     except Exception as e:
+        return 502
+    else:
+        return results
+
+
+def get_fiction_latest_book_list(user_agent):
+    results = {
+        'total_item': 0,
+        'total_pages': 1,
+        'type': 'non-fiction',
+        'items': []
+    }
+    nbr_of_request = 0
+
+    headers = {
+        "user-agent": user_agent.random,
+        'Referer': "http://libgen.rs/",
+        'Host': 'libgen.rs',
+        'Connection': 'keep-alive'}
+
+    books = []
+
+    try:
+        with requests.session() as session:
+            r = session.get(FICTION_LATEST,
+                            headers=headers, timeout=TIMEOUT)
+            while r.status_code != 200 and nbr_of_request <= MAX_REQUEST_TRY:
+                headers = {
+                    'user-agent': user_agent.random,
+                    'Referer': "http://libgen.rs/",
+                    'Host': 'libgen.rs',
+                    'Connection': 'keep-alive'}
+                r = session.get(FICTION_LATEST,
+                                headers=headers, timeout=TIMEOUT)
+                nbr_of_request = nbr_of_request + 1
+
+        if nbr_of_request <= MAX_REQUEST_TRY:
+            html_text = r.text
+            soup = BeautifulSoup(html_text, 'lxml')
+
+            feed_entries = soup.find_all('item')
+            print(len(feed_entries))
+            for item in feed_entries:
+                book = {}
+                file_info = get_fiction_additionnal_info(
+                    item.description.text.strip())
+                if file_info != -1:
+                    book.update({
+                        'title': item.title.text.strip(),
+                        'language': file_info['language'],
+                        'size': file_info['size'],
+                        'extension': file_info['extension'],
+                        'md5': item.guid.text.strip(),
+                        'nbrOfPages': file_info['nbrOfPages'],
+                        'source': '',
+                        'details': {
+                            'authors': file_info['authors'],
+                            'type': 'fiction',
+                            'publisher': '',
+                            'isbn': file_info['isbn'],
+                            "series": file_info['series'],
+                            'description': "",
+                            "image": file_info['image'],
+                            "download_links": [],
+                            'year': ''
+                        }
+                    })
+                    books.append(book)
+            results.update({
+                'total_item': len(books),
+                'items': books
+            })
+    except Exception as e:
+        print(e)
         return 502
     else:
         return results
@@ -61,7 +167,10 @@ def get_non_fiction_additionnal_info(entries_summary):
         'language': '',
         'size': '',
         'extension': '',
-        'nbrOfPages': ''
+        'nbrOfPages': '',
+        'image': '',
+        'series': '',
+        'isbn': []
     }
     soup = BeautifulSoup(entries_summary, 'lxml')
     summary = soup.find_all('td')
@@ -81,10 +190,63 @@ def get_non_fiction_additionnal_info(entries_summary):
 
         file_info = summary[7].text.strip().split(' ')
 
+        extension = file_info[-1].replace('[', '').replace(']', '').lower()
+
+        if extension not in VALID_EXTENSION:
+            return -1
+
         result.update({
             'language': summary[13].text.strip(),
             'size': file_info[0] + ' ' + file_info[1],
-            'extension': file_info[-1].replace('[', '').replace(']', '').lower(),
-            'nbrOfPages': nbr_of_pages
+            'image': IMAGE_SOURCE + summary[0].img['src'],
+            'extension': extension,
+            'nbrOfPages': nbr_of_pages,
+            'authors': summary[3].text.strip().split(','),
+            'isbn': summary[5].text.strip().split(','),
+            'series': summary[11].text.strip()
         })
+    return result
+
+
+# get language, size and extension from the html part of the rss feed
+def get_fiction_additionnal_info(entries_summary):
+    result = {
+        'language': '',
+        'size': '',
+        'extension': '',
+        'nbrOfPages': '',
+        'image': '',
+        'series': '',
+        'isbn': []
+    }
+
+    soup = BeautifulSoup(entries_summary, 'lxml')
+    container = soup.find_all('td')
+
+    summary = container[1].find_all('td')
+    result['image'] = container[0].img['src']
+
+    _len = len(summary)
+    for i in range(_len):
+        if i*2 < _len and (i*2) + 1 < _len:
+            key = summary[i*2].text.strip().lower().replace(':', '')
+            value = summary[(i*2)+1].text.strip()
+
+            if key == 'authors':
+                value = value.split(',')
+
+            elif key == 'file':
+                value = value.split('/')
+                result['size'] = value[-1].strip()
+                if value[0].strip().lower() not in VALID_EXTENSION:
+                    return -1
+                else:
+                    result['extension'] = value[0].strip().lower()
+
+            elif key == 'language':
+                if value.lower() not in VALID_RSS_LANGUAGE:
+                    return -1
+
+            if key != "file":
+                result[key] = value
     return result

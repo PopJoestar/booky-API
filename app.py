@@ -22,6 +22,7 @@ def get_fiction_books():
         'page': request.args.get('page'),
     }
     results = core.get_books(url_params=params, is_fiction=True)
+
     if isinstance(results, int):
         abort(results)
     return jsonify(results)
@@ -38,8 +39,8 @@ def get_non_fiction_books():
     params = {
         'req': request.args.get('q'),
         'open': 0,
-        'res': 25,
-        'view': 'simple',
+        'res': 50,
+        'view': 'detailed',
         'phrase': 0,
         'column': 'def',
         'language': language,
@@ -48,7 +49,7 @@ def get_non_fiction_books():
         'sort': 'id',
         'sortmode': 'DESC'
     }
-    results = core.get_books(url_params=params, is_fiction=False)
+    results = core.get_non_fiction_detailed_book_list(url_params=params)
     if isinstance(results, int):
         abort(results)
     return jsonify(results)
@@ -74,5 +75,13 @@ def get_latest_non_fiction():
     return jsonify(results)
 
 
+@app.route('/books/non-fiction/detail/<string:md5>', methods=['GET'])
+def get_non_fiction_book_details(md5: str):
+    results = core.get_additionnal_non_fiction_book_details(md5)
+    if isinstance(results, int):
+        abort(results)
+    return jsonify(results)
+
+
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)

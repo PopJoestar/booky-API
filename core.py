@@ -1,7 +1,6 @@
 import concurrent.futures
 import math
 from urllib.parse import urlencode
-
 import requests
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
@@ -18,7 +17,12 @@ MAX_REQUEST_DETAILS_TRY = 10
 MAX_REQUEST_TRY = 20
 IMAGE_SOURCE = "https://libgen.is"
 MAX_ITEMS_PER_PAGE = 25
+
+NON_FICTION_ITEMS_PER_PAGE = 50
+
 MAX_SHOWING_RESULTS = 10000
+VALID_EXTENSION = {'pdf', 'epub', 'zip', 'rar',
+                   'azw', 'azw3', 'fb2', 'mobi', 'djvu'}
 AVAILABLE_LANGUAGE = {
     'anglais',
     'français',
@@ -39,8 +43,6 @@ AVAILABLE_LANGUAGE = {
     'greek',
     'polish',
 }
-VALID_EXTENSION = {'pdf', 'epub', 'zip', 'rar',
-                   'azw', 'azw3', 'fb2', 'mobi', 'djvu'}
 
 
 def create_url(base_url, params):
@@ -69,6 +71,7 @@ def get_book_details(session, book_md5, is_fiction, ua):
         'type': 'fiction' if is_fiction else 'non-fiction',
         'publisher': "",
         'isbn': [],
+        "series": "",
         'description': "",
         "image": "",
         "download_links": [],
@@ -115,7 +118,7 @@ def get_book_details(session, book_md5, is_fiction, ua):
                     if 'Author(s)' in detail.text:
                         res = detail.text.split(":")
                         result.update({
-                            'authors': res[-1].strip().split(";")
+                            'authors': item.split(',') for item in res[-1].strip().split(";")
                         })
                     elif 'Publisher' in detail.text:
                         res = detail.text.split(":")
@@ -169,8 +172,88 @@ def get_book_details(session, book_md5, is_fiction, ua):
         return result
 
 
-# return a object which contains a list of book and the total of pages
-def get_non_fiction_book_list(session, url_params, ua):
+def get_additionnal_non_fiction_book_details(non_fiction_book_md5):
+    nbr_of_request = 0
+    url = NON_FICTION_DETAILS_URL + non_fiction_book_md5
+    ua = UserAgent()
+    headers = {
+        'user-agent': ua.random,
+        'Referer': 'http://libgen.rs/',
+        'Host': 'library.lol',
+    }
+
+    result = {
+        'description': "",
+        "download_links": [],
+        'year': ''
+    }
+
+    try:
+        with requests.session() as session:
+            r = session.get(url, headers=headers, timeout=TIMEOUT)
+
+            while r.status_code != 200 and nbr_of_request <= MAX_REQUEST_DETAILS_TRY:
+                headers = {
+                    'user-agent': ua.random,
+                    'Referer': 'http://libgen.rs/',
+                    'Host': 'library.lol',
+                    'Connection': 'keep-alive'
+                }
+                r = session.get(url, headers=headers, timeout=TIMEOUT)
+                nbr_of_request = nbr_of_request + 1
+
+        if nbr_of_request <= MAX_REQUEST_TRY:
+            soup = BeautifulSoup(r.text, "lxml")
+
+            details_container = soup.find('td', id="info")
+
+            if details_container is not None:
+                details = details_container.find_all('p')
+
+                # get the description if exist
+                description_container = details_container.find_all("div")
+                if len(description_container) > 3:
+                    result.update({
+                        'description': str(description_container[3])
+                    })
+                else:
+                    if description_container[-1].text != "":
+                        result.update({
+                            'description': str(description_container[-1])
+                        })
+
+                for detail in details:
+                    if 'Publisher' in detail.text:
+                        res = detail.text.split(":")
+                        value = res[-1].strip()
+                        result.update({
+                            'year': value if value != "" and value.isdigit() else ''
+                        })
+
+                # get all available download links
+                download_container = soup.find(
+                    'div', id="download").find_all('a')
+                download_links = []
+                if download_container is not None:
+                    for link in download_container:
+                        download_links.append(link['href'])
+
+                result.update({
+                    'download_links': download_links
+                })
+            else:
+                return 404
+        else:
+            return 502
+    except requests.Timeout as e:
+        return 504
+    except Exception as e:
+        return 503
+    else:
+        return result
+
+
+def get_non_fiction_book_list(url_params):
     url = create_url(NON_FICTION_BASE_URL, url_params)
     results = {
         'total_item': 0,
@@ -178,7 +261,7 @@ def get_non_fiction_book_list(session, url_params, ua):
         'type': 'non-fiction',
         'items': []
     }
-
+    ua = UserAgent()
     books = []
     nbr_of_request = 0
 
@@ -190,15 +273,16 @@ def get_non_fiction_book_list(session, url_params, ua):
     }
 
     try:
-        r = session.get(url, headers=headers, timeout=TIMEOUT)
-        while r.status_code != 200 and nbr_of_request <= MAX_REQUEST_TRY:
-            headers = {
-                'user-agent': ua.random,
-                'Referer': "http://libgen.rs/",
-                'Host': 'libgen.rs',
-                'Connection': 'keep-alive'}
+        with requests.session() as session:
             r = session.get(url, headers=headers, timeout=TIMEOUT)
-            nbr_of_request = nbr_of_request + 1
+            while r.status_code != 200 and nbr_of_request <= MAX_REQUEST_TRY:
+                headers = {
+                    'user-agent': ua.random,
+                    'Referer': "http://libgen.rs/",
+                    'Host': 'libgen.rs',
+                    'Connection': 'keep-alive'}
+                r = session.get(url, headers=headers, timeout=TIMEOUT)
+                nbr_of_request = nbr_of_request + 1
 
         if nbr_of_request <= MAX_REQUEST_TRY:
             html_text = r.text
@@ -212,63 +296,66 @@ def get_non_fiction_book_list(session, url_params, ua):
                 total_item = int(
                     total_item_container.text.strip().split(" ")[0])
                 total_item = total_item if total_item <= MAX_SHOWING_RESULTS else MAX_SHOWING_RESULTS
-                if total_item != 0:
-                    results.update({
-                        'total_item': total_item,
-                        'total_pages': math.ceil(total_item / MAX_ITEMS_PER_PAGE)
-                    })
-                else:
+                if total_item == 0:
                     return 404
             else:
                 return 404
 
-            if table is not None:
-                rows = table.find_all("tr")
+            tables = soup.find_all("table", {'rules': 'cols'})
 
-                # remove the header of the table
-                rows.pop(0)
+            tables.pop(-1)
 
-                for row in rows:
+            for i, table in enumerate(tables):
+                # remove all Mirror tables
+                if i % 2 == 0:
                     book = {}
-                    data = row.find_all("td")
-                    language = data[6].text.strip()
-                    extension = data[8].text.strip()
+                    page_language = []
+                    size_extension = []
+                    rows = table.find_all("tr")
 
-                    if language.lower() in AVAILABLE_LANGUAGE and extension.lower() in VALID_EXTENSION:
-                        # remove the ISBN,Collection,edition from the title
-                        temp = data[2].find_all("i")
-                        title = data[2].text.strip()
-                        for item in temp:
-                            title = title.replace(item.text.strip(), "")
+                    page_language = rows[6].find_all("td")
+                    size_extension = rows[9].find_all("td")
+                    series = rows[3].find_all('td')[1].text.strip()
+                    publisher = rows[4].find_all('td')[1].text.strip()
+                    year = rows[5].find_all('td')[1].text.strip()
+                    isbns = rows[7].find_all(
+                        'td')[1].text.strip().replace(' ', '').split(',')
 
-                        md5 = data[9].a['href'].strip().split("/")[-1]
+                    size_container = size_extension[1].text.strip().split(
+                        ' ')
 
-                        book.update({
-                            'title': title.strip(),
-                            'language': language,
-                            'size': data[7].text.strip(),
-                            'extension': extension,
-                            'md5': md5,
-                            'image': '',
-                            'nbrOfPages': data[5].text.strip(),
-                            'series': '',
-                            'source': '',
-                            'details': None
-                        })
-                        books.append(book)
+                    book.update({
+                        'title': rows[1].b.text.strip(),
+                        'md5': rows[1].a['href'].strip().split('=')[-1],
+                        'language': page_language[1].text.strip(),
+                        'size': size_container[0] + size_container[1],
+                        'extension': size_extension[-1].text.strip(),
+                        'nbrOfPages': page_language[-1].text.strip(),
+                        'source': '',
+                        'details': {
+                            'authors': rows[2].b.text.strip().split(','),
+                            'type': 'non-fiction',
+                            'publisher': publisher,
+                            'isbn': isbns,
+                            "series": series,
+                            'description': "",
+                            "image": IMAGE_SOURCE + rows[1].img['src'].strip(),
+                            "download_links": [],
+                            'year': year
+                        }
+                    })
+                    books.append(book)
 
-                results.update({
-                    'items': books
-                })
-            else:
-                return 404
-        else:
-            return 502
+            results.update({
+                'total_item': total_item,
+                'total_pages': math.ceil(total_item / NON_FICTION_ITEMS_PER_PAGE),
+                'items': books
+            })
+
     except requests.Timeout as e:
         return 504
     except Exception as e:
         return 503
-
     else:
         return results
 
@@ -378,9 +465,7 @@ def get_books(is_fiction, url_params=None, is_latest=False):
                                               ua) if is_fiction else get_non_fiction_latest_book_list(ua)
             else:
                 books = get_fiction_book_list(session, FICTION_BASE_URL, url_params,
-                                              ua) if is_fiction else get_non_fiction_book_list(session,
-                                                                                               url_params,
-                                                                                               ua)
+                                              ua)
 
             if not isinstance(books, int) and len(books['items']) != 0:
                 md5s = [book['md5'] for book in books['items']]
@@ -413,4 +498,5 @@ def get_books(is_fiction, url_params=None, is_latest=False):
                     {'total_pages': books['total_pages'], 'total_item': books['total_item']})
             else:
                 return books
+
     return results

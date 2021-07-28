@@ -1,3 +1,6 @@
+from fake_useragent.fake import UserAgent
+import requests
+from latestFetcher import get_fiction_latest_books, get_non_fiction_latest_books
 from flask import Flask, jsonify, request, abort
 import core
 
@@ -21,7 +24,7 @@ def get_fiction_books():
         'format': _format,
         'page': request.args.get('page'),
     }
-    results = core.get_books(url_params=params, is_fiction=True)
+    results = core.get_fiction_books(params)
 
     if isinstance(results, int):
         abort(results)
@@ -49,7 +52,7 @@ def get_non_fiction_books():
         'sort': 'id',
         'sortmode': 'DESC'
     }
-    results = core.get_non_fiction_detailed_book_list(url_params=params)
+    results = core.get_non_fiction_books(url_params=params)
     if isinstance(results, int):
         abort(results)
     return jsonify(results)
@@ -57,29 +60,21 @@ def get_non_fiction_books():
 
 @app.route('/books/latest/fiction', methods=['GET'])
 def get_latest_fiction():
-    results = core.get_books(is_fiction=True, is_latest=True)
-    if isinstance(results, int):
-        abort(results)
-    elif len(results['items']) == 0:
-        abort(404)
+    results = get_fiction_latest_books()
     return jsonify(results)
 
 
 @app.route('/books/latest/non-fiction', methods=['GET'])
 def get_latest_non_fiction():
-    results = core.get_books(is_fiction=False, is_latest=True)
-    if isinstance(results, int):
-        abort(results)
-    elif len(results['items']) == 0:
-        abort(404)
+    results = get_non_fiction_latest_books()
     return jsonify(results)
 
 
-@app.route('/books/non-fiction/detail/<string:md5>', methods=['GET'])
-def get_non_fiction_book_details(md5: str):
-    results = core.get_additionnal_non_fiction_book_details(md5)
-    if isinstance(results, int):
-        abort(results)
+@app.route('/books/detail/<string:type>/<string:md5>', methods=['GET'])
+def get_book_details(type: str, md5: str):
+    ua = UserAgent()
+    with requests.session() as session:
+        results = core.get_book_details(session, md5, type, ua)
     return jsonify(results)
 
 

@@ -1,167 +1,120 @@
+from core import get_html_container
 from bs4 import BeautifulSoup
-from fake_useragent.fake import UserAgent
-import requests
 
 VALID_RSS_LANGUAGE = {'french', 'english', 'français', 'anglais'}
 NON_FICTION_LATEST = "http://libgen.rs/rss/index.php?page=20"
 FICTION_LATEST = "http://libgen.rs/fiction/rss"
-
 VALID_EXTENSION = {'pdf', 'epub', 'zip', 'rar',
                    'azw', 'azw3', 'fb2', 'mobi', 'djvu'}
-TIMEOUT = 150
+TIMEOUT = 10
 MAX_REQUEST_DETAILS_TRY = 10
 MAX_REQUEST_TRY = 20
 IMAGE_SOURCE = "https://libgen.is"
 
 
-# get all recently added books
-def get_non_fiction_latest_book_list(user_agent):
+def get_non_fiction_latest_books():
     results = {
         'total_item': 0,
         'total_pages': 1,
-        'type': 'non-fiction',
         'items': []
     }
-    nbr_of_request = 0
-
-    headers = {
-        "user-agent": user_agent.random,
-        'Referer': "http://libgen.rs/",
-        'Host': 'libgen.rs',
-        'Connection': 'keep-alive'}
 
     books = []
 
     try:
-        with requests.session() as session:
-            r = session.get(NON_FICTION_LATEST,
-                            headers=headers, timeout=TIMEOUT)
-            while r.status_code != 200 and nbr_of_request <= MAX_REQUEST_TRY:
-                headers = {
-                    'user-agent': user_agent.random,
-                    'Referer': "http://libgen.rs/",
-                    'Host': 'libgen.rs',
-                    'Connection': 'keep-alive'}
-                r = session.get(NON_FICTION_LATEST,
-                                headers=headers, timeout=TIMEOUT)
-                nbr_of_request = nbr_of_request + 1
+        r = get_html_container(NON_FICTION_LATEST)
 
-        if nbr_of_request <= MAX_REQUEST_TRY:
-            html_text = r.text
-            soup = BeautifulSoup(html_text, 'lxml')
+        html_text = r.text
+        soup = BeautifulSoup(html_text, 'lxml')
 
-            feed_entries = soup.find_all('item')
-            for item in feed_entries:
-                book = {}
-                file_info = get_non_fiction_additionnal_info(
-                    item.description.text)
-                if file_info != -1:
-                    book.update({
-                        'title': item.title.text.strip(),
-                        'language': file_info['language'],
-                        'size': file_info['size'],
-                        'extension': file_info['extension'],
-                        'md5': item.guid.text.strip(),
-                        'nbrOfPages': file_info['nbrOfPages'],
-                        'source': '',
-                        'details': {
-                            'authors': file_info['authors'],
-                            'type': 'non-fiction',
-                            'publisher': '',
-                            'isbn': file_info['isbn'],
-                            "series": file_info['series'],
-                            'description': "",
-                            "image": file_info['image'],
-                            "download_links": [],
-                            'year': ''
-                        }
-                    })
-                    books.append(book)
-            results.update({
-                'total_item': len(books),
-                'items': books
-            })
-    except Exception as e:
-        return 502
-    else:
+        feed_entries = soup.find_all('item')
+
+        for item in feed_entries:
+            book = {}
+            file_info = get_non_fiction_additionnal_info(
+                item.description.text)
+            if file_info:
+                book.update({
+                    'title': item.title.text.strip(),
+                    'language': file_info['language'],
+                    'size': file_info['size'],
+                    'extension': file_info['extension'],
+                    'md5': item.guid.text.strip(),
+                    'nbrOfPages': file_info['nbrOfPages'],
+                    'source': '',
+                    'details': {
+                        'authors': file_info['authors'],
+                        'type': 'non-fiction',
+                        'publisher': '',
+                        'isbn': file_info['isbn'],
+                        "series": file_info['series'],
+                        'description': "",
+                        "image": file_info['image'],
+                        "download_links": [],
+                        'year': ''
+                    }
+                })
+                books.append(book)
+        results.update({
+            'total_item': len(books),
+            'items': books
+        })
         return results
+    except Exception as e:
+        raise Exception(e.__str__)
 
 
-def get_fiction_latest_book_list(user_agent):
+def get_fiction_latest_books():
     results = {
         'total_item': 0,
         'total_pages': 1,
-        'type': 'non-fiction',
         'items': []
     }
-    nbr_of_request = 0
-
-    headers = {
-        "user-agent": user_agent.random,
-        'Referer': "http://libgen.rs/",
-        'Host': 'libgen.rs',
-        'Connection': 'keep-alive'}
 
     books = []
 
     try:
-        with requests.session() as session:
-            r = session.get(FICTION_LATEST,
-                            headers=headers, timeout=TIMEOUT)
-            while r.status_code != 200 and nbr_of_request <= MAX_REQUEST_TRY:
-                headers = {
-                    'user-agent': user_agent.random,
-                    'Referer': "http://libgen.rs/",
-                    'Host': 'libgen.rs',
-                    'Connection': 'keep-alive'}
-                r = session.get(FICTION_LATEST,
-                                headers=headers, timeout=TIMEOUT)
-                nbr_of_request = nbr_of_request + 1
+        r = get_html_container(FICTION_LATEST)
 
-        if nbr_of_request <= MAX_REQUEST_TRY:
-            html_text = r.text
-            soup = BeautifulSoup(html_text, 'lxml')
+        html_text = r.text
+        soup = BeautifulSoup(html_text, 'lxml')
 
-            feed_entries = soup.find_all('item')
-            print(len(feed_entries))
-            for item in feed_entries:
-                book = {}
-                file_info = get_fiction_additionnal_info(
-                    item.description.text.strip())
-                if file_info != -1:
-                    book.update({
-                        'title': item.title.text.strip(),
-                        'language': file_info['language'],
-                        'size': file_info['size'],
-                        'extension': file_info['extension'],
-                        'md5': item.guid.text.strip(),
-                        'nbrOfPages': file_info['nbrOfPages'],
-                        'source': '',
-                        'details': {
-                            'authors': file_info['authors'],
-                            'type': 'fiction',
-                            'publisher': '',
-                            'isbn': file_info['isbn'],
-                            "series": file_info['series'],
-                            'description': "",
-                            "image": file_info['image'],
-                            "download_links": [],
-                            'year': ''
-                        }
-                    })
-                    books.append(book)
-            results.update({
-                'total_item': len(books),
-                'items': books
-            })
-    except Exception as e:
-        print(e)
-        return 502
-    else:
+        feed_entries = soup.find_all('item')
+        for item in feed_entries:
+            book = {}
+            file_info = get_fiction_additionnal_info(
+                item.description.text.strip())
+            if file_info:
+                book.update({
+                    'title': item.title.text.strip(),
+                    'language': file_info['language'],
+                    'size': file_info['size'],
+                    'extension': file_info['extension'],
+                    'md5': item.guid.text.strip(),
+                    'nbrOfPages': file_info['nbrOfPages'],
+                    'source': '',
+                    'details': {
+                        'authors': file_info['authors'],
+                        'type': 'fiction',
+                        'publisher': '',
+                        'isbn': file_info['isbn'],
+                        "series": file_info['series'],
+                        'description': "",
+                        "image": file_info['image'],
+                        "download_links": [],
+                        'year': ''
+                    }
+                })
+                books.append(book)
+        results.update({
+            'total_item': len(books),
+            'items': books
+        })
         return results
+    except Exception as e:
+        raise Exception
 
 
-# get language, size and extension from the html part of the rss feed
 def get_non_fiction_additionnal_info(entries_summary):
     result = {
         'language': '',
@@ -176,7 +129,7 @@ def get_non_fiction_additionnal_info(entries_summary):
     summary = soup.find_all('td')
 
     if summary[13].text.strip().lower() not in VALID_RSS_LANGUAGE:
-        return -1
+        return None
 
     if len(summary) != 0:
         nbr_of_pages = ""
@@ -193,7 +146,7 @@ def get_non_fiction_additionnal_info(entries_summary):
         extension = file_info[-1].replace('[', '').replace(']', '').lower()
 
         if extension not in VALID_EXTENSION:
-            return -1
+            return None
 
         result.update({
             'language': summary[13].text.strip(),
@@ -208,7 +161,6 @@ def get_non_fiction_additionnal_info(entries_summary):
     return result
 
 
-# get language, size and extension from the html part of the rss feed
 def get_fiction_additionnal_info(entries_summary):
     result = {
         'language': '',
@@ -239,13 +191,13 @@ def get_fiction_additionnal_info(entries_summary):
                 value = value.split('/')
                 result['size'] = value[-1].strip()
                 if value[0].strip().lower() not in VALID_EXTENSION:
-                    return -1
+                    return None
                 else:
                     result['extension'] = value[0].strip().lower()
 
             elif key == 'language':
                 if value.lower() not in VALID_RSS_LANGUAGE:
-                    return -1
+                    return None
 
             if key != "file":
                 result[key] = value

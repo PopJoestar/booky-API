@@ -96,9 +96,7 @@ def get_libgen_non_fiction_params(params: dict):
             'column': 'def',
             'language': language,
             'format': format,
-            'page': params['page'],
-            'sort': 'id',
-            'sortmode': 'DESC'
+            'page': params['page']
         }
 
     return result

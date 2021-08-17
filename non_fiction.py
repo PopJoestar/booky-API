@@ -57,22 +57,22 @@ def search(url_params):
                     ' ')
 
                 book.update({
+                    'libgenID': int(rows[0].text.strip()),
                     'title': rows[1].b.text.strip(),
                     'md5': rows[1].a['href'].strip().split('=')[-1],
                     'language': page_language[1].text.strip(),
                     'size': size_container[0] + size_container[1],
                     'extension': size_extension[-1].text.strip(),
                     'nbrOfPages': page_language[-1].text.strip(),
-                    'source': '',
                     'details': {
                         'authors': rows[2].b.text.strip().split(','),
                         'type': 'non-fiction',
                         'publisher': publisher,
                         'isbn': isbns,
                         "series": series,
-                        'description': "",
+                        'description': None,
                         "image": config.IMAGE_SOURCE + rows[1].img['src'].strip(),
-                        "download_links": [],
+                        "download_links": None,
                         'year': year
                     }
                 })
@@ -99,7 +99,8 @@ def get_latest():
     books = []
 
     try:
-        r = get_html_container(config.NON_FICTION_LATEST, timeout=config.TIMEOUT)
+        r = get_html_container(config.NON_FICTION_LATEST,
+                               timeout=config.TIMEOUT)
 
         html_text = r.text
         soup = BeautifulSoup(html_text, 'lxml')
@@ -107,31 +108,34 @@ def get_latest():
         feed_entries = soup.find_all('item')
 
         for item in feed_entries:
-            book = {}
-            file_info = get_entry_details(
-                item.description.text)
-            if file_info:
-                book.update({
-                    'title': item.title.text.strip(),
-                    'language': file_info['language'],
-                    'size': file_info['size'],
-                    'extension': file_info['extension'],
-                    'md5': item.guid.text.strip(),
-                    'nbrOfPages': file_info['nbrOfPages'],
-                    'source': '',
-                    'details': {
-                        'authors': file_info['authors'],
-                        'type': 'non-fiction',
-                        'publisher': '',
-                        'isbn': file_info['isbn'],
-                        "series": file_info['series'],
-                        'description': "",
-                        "image": file_info['image'],
-                        "download_links": [],
-                        'year': ''
-                    }
-                })
-                books.append(book)
+            if (len(books) < config.MAX_NEW_ENTRY_IN_FICTION):
+                book = {}
+                file_info = get_entry_details(
+                    item.description.text)
+                if file_info:
+                    book.update({
+                        'libgenID': file_info['libgenID'],
+                        'title': item.title.text.strip(),
+                        'language': file_info['language'],
+                        'size': file_info['size'],
+                        'extension': file_info['extension'],
+                        'md5': item.guid.text.strip(),
+                        'nbrOfPages': file_info['nbrOfPages'],
+                        'details': {
+                            'authors': file_info['authors'],
+                            'type': 'non-fiction',
+                            'publisher': None,
+                            'isbn': file_info['isbn'],
+                            "series": file_info['series'],
+                            'description': None,
+                            "image": file_info['image'],
+                            "download_links": None,
+                            'year': None
+                        }
+                    })
+                    books.append(book)
+            else:
+                break
         results.update({
             'total_item': len(books),
             'items': books
@@ -143,6 +147,7 @@ def get_latest():
 
 def get_entry_details(entries_summary):
     result = {
+        'libgenID': '',
         'language': '',
         'size': '',
         'extension': '',
@@ -175,6 +180,7 @@ def get_entry_details(entries_summary):
             return None
 
         result.update({
+            'libgenID': int(summary[15].text.strip()),
             'language': summary[13].text.strip(),
             'size': file_info[0] + ' ' + file_info[1],
             'image': config.IMAGE_SOURCE + summary[0].img['src'],
@@ -185,4 +191,3 @@ def get_entry_details(entries_summary):
             'series': summary[11].text.strip()
         })
     return result
-    

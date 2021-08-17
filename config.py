@@ -57,6 +57,8 @@ with open('./conf/config.yaml') as conf_file:
         "MAX_DETAILS_REQUESTS_TRY")
     MAX_REQUESTS_TRY = conf.get("MAX_REQUESTS_TRY")
     FICTION_ITEMS_PER_PAGE = conf.get("FICTION_ITEMS_PER_PAGE")
+    MAX_NEW_ENTRY_IN_FICTION = conf.get("MAX_NEW_ENTRY_IN_FICTION")
+
     NON_FICTION_ITEMS_PER_PAGE = conf.get(
         "NON_FICTION_ITEMS_PER_PAGE")
     MAX_SHOWING_RESULTS = conf.get("MAX_SHOWING_RESULTS")

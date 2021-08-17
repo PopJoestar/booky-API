@@ -2,7 +2,7 @@ FICTION_LATEST: "http://libgen.rs/fiction/rss"
 FICTION_BASE_URL: "http://libgen.rs/fiction/?"
 FICTION_DETAILS_BASE_URL: "http://library.lol/fiction/"
 
-NON_FICTION_LATEST: "http://libgen.rs/rss/index.php?page=20"
+NON_FICTION_LATEST: "http://libgen.rs/rss/index.php"
 NON_FICTION_BASE_URL: "http://libgen.rs/search.php?"
 NON_FICTION_DETAILS_URL: "http://library.lol/main/"
 
@@ -13,6 +13,7 @@ MAX_DETAILS_REQUESTS_TRY: 10
 MAX_REQUESTS_TRY: 20
 
 FICTION_ITEMS_PER_PAGE: 25
+MAX_NEW_ENTRY_IN_FICTION: 20
 NON_FICTION_ITEMS_PER_PAGE: 50
 
 MAX_SHOWING_RESULTS: 10000

@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from fake_useragent.fake import UserAgent
+from fake_useragent import UserAgent
 import requests
 from config import FICTION_DETAILS_BASE_URL, IMAGE_SOURCE, MAX_DETAILS_REQUESTS_TRY, MAX_REQUESTS_TRY, NON_FICTION_DETAILS_URL, TIMEOUT
 
@@ -9,7 +9,6 @@ def get_details(session, book_md5, book_type, ua):
     nbr_of_request = 0
     url = FICTION_DETAILS_BASE_URL if is_fiction else NON_FICTION_DETAILS_URL
     url = url + book_md5
-
     headers = {
         'user-agent': ua.random,
         'Referer': 'http://libgen.rs/',
@@ -118,6 +117,10 @@ def get_details(session, book_md5, book_type, ua):
 
 def get_book_details(type: str,  md5: str):
     ua = UserAgent()
+    result = {}
     with requests.Session() as session:
-        results = get_details(session, md5, type, ua)
-    return results
+        temp = get_details(session, md5, type, ua)
+        for i, key in enumerate(temp):
+            if i:
+                result[key] = temp[key]
+    return result

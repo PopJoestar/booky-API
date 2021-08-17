@@ -53,14 +53,14 @@ def search(url_params):
                 if extension.lower() in config.EXTENSIONS and language.lower() in config.LANGUAGES:
                     md5 = data[5].ul.li.a['href'].strip().split("/")[-1]
                     book.update({
+                        'libgenID': None,
                         'title': data[2].text.strip(),
                         'language': language,
                         'size': file_info[-1].strip().replace(non_break_space, ''),
                         'extension': extension,
                         'md5': md5,
-                        'nbrOfPages': '',
-                        'source': 'recent' if url == config.FICTION_LATEST else '',
-                        'image': '',
+                        'nbrOfPages': None,
+                        'image': None,
                         'details':
                             {'type': 'fiction'}
                     })
@@ -90,31 +90,34 @@ def get_latest():
         soup = BeautifulSoup(html_text, 'lxml')
         feed_entries = soup.find_all('item')
         for item in feed_entries:
-            book = {}
-            file_info = get_entry_details(
-                item.description.text.strip())
-            if file_info:
-                book.update({
-                    'title': item.title.text.strip(),
-                    'language': file_info['language'],
-                    'size': file_info['size'],
-                    'extension': file_info['extension'],
-                    'md5': item.guid.text.strip(),
-                    'nbrOfPages': file_info['nbrOfPages'],
-                    'source': '',
-                    'details': {
-                        'authors': file_info['authors'],
-                        'type': 'fiction',
-                        'publisher': '',
-                        'isbn': file_info['isbn'],
-                        "series": file_info['series'],
-                        'description': "",
-                        "image": file_info['image'],
-                        "download_links": [],
-                        'year': ''
-                    }
-                })
-                books.append(book)
+            if (len(books) < config.MAX_NEW_ENTRY_IN_FICTION):
+                book = {}
+                file_info = get_entry_details(
+                    item.description.text.strip())
+                if file_info:
+                    book.update({
+                        'libgenID': None,
+                        'title': item.title.text.strip(),
+                        'language': file_info['language'],
+                        'size': file_info['size'],
+                        'extension': file_info['extension'],
+                        'md5': item.guid.text.strip(),
+                        'nbrOfPages': file_info['nbrOfPages'],
+                        'details': {
+                            'authors': file_info['authors'],
+                            'type': 'fiction',
+                            'publisher': None,
+                            'isbn': file_info['isbn'],
+                            "series": file_info['series'],
+                            'description': None,
+                            "image": file_info['image'],
+                            "download_links": None,
+                            'year': None
+                        }
+                    })
+                    books.append(book)
+            else:
+                break
         results.update({
             'total_item': len(books),
             'items': books
@@ -192,9 +195,3 @@ def get_entry_details(entries_summary):
             if key != "file":
                 result[key] = value
     return result
-
-
-if __name__ == '__main__':
-    s = ['id', 'title', 'series', 'author', 'year', 'edition', 'publisher', 'pages',
-         'language', 'identifier', 'filesize', 'extension', 'md5', 'coverurl', 'descr', 'toc', 'ipfs_cid']
-    print(','.join([item.lower() for item in s]))

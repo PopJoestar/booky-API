@@ -1,4 +1,5 @@
-FICTION_LATEST: "http://libgen.rs/fiction/rss"
+FICTION_RSS: "http://libgen.rs/fiction/rss"
+FICTION_LATEST: "http://libgen.rs/fiction/recent"
 FICTION_BASE_URL: "http://libgen.rs/fiction/?"
 FICTION_DETAILS_BASE_URL: "http://library.lol/fiction/"
 

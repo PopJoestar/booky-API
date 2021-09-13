@@ -3,8 +3,11 @@ import math
 from bs4 import BeautifulSoup
 
 from config import libgen_config as config
+from cachetools import cached, TTLCache
 from helpers import create_url, get_html_container, get_libgen_non_fiction_params, InvalidParamsError, checkIsbn, \
     get_book_details_by_type
+
+cache = TTLCache(maxsize=128, ttl=config.CACHE_TTL)
 
 
 def search(req_params):
@@ -190,7 +193,7 @@ def get_list_from_simple_view(url_params):
     except Exception as e:
         raise e
 
-
+@cached(cache=cache)
 def get_latest():
     results = {
         'total_item': 0,

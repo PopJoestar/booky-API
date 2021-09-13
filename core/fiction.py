@@ -4,11 +4,12 @@ from bs4 import BeautifulSoup
 from fake_useragent.fake import UserAgent
 from gevent import spawn, joinall
 from requests import Session
-
 from config import libgen_config as config
+from cachetools import cached, TTLCache
 from helpers import get_details, get_libgen_fiction_params, InvalidParamsError, get_book_details_by_type, create_url, \
     get_html_container
-
+    
+cache = TTLCache(maxsize=128, ttl=config.CACHE_TTL)
 
 def search(req_params):
     try:
@@ -57,6 +58,7 @@ def get_latest():
         raise e
 
 
+@cached(cache=cache)
 def get_latest_from_rss():
     results = {
         'total_item': 0,

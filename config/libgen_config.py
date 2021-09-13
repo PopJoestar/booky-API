@@ -66,3 +66,4 @@ with open(config) as conf_file:
     NON_FICTION_ITEMS_PER_PAGE = conf.get(
         "NON_FICTION_ITEMS_PER_PAGE")
     MAX_SHOWING_RESULTS = conf.get("MAX_SHOWING_RESULTS")
+    CACHE_TTL = conf.get("CACHE_TTL")

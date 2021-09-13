@@ -1,4 +1,5 @@
 beautifulsoup4==4.9.3
+cachetools==4.2.2
 certifi==2021.5.30
 charset-normalizer==2.0.3
 fake-useragent==0.1.11
@@ -10,6 +11,7 @@ idna==3.2
 lxml==4.6.3
 PyYAML==5.4.1
 requests==2.26.0
+six==1.16.0
 soupsieve==2.2.1
 urllib3==1.26.6
 zope.event==4.5.0

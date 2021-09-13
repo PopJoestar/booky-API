@@ -4,7 +4,6 @@ from urllib.parse import urlencode
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from requests import Session
-
 from config.libgen_config import FICTION_DETAILS_BASE_URL, IMAGE_SOURCE, MAX_DETAILS_REQUESTS_TRY, MAX_REQUESTS_TRY, \
     NON_FICTION_DETAILS_URL, TIMEOUT
 

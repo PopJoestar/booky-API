@@ -6,7 +6,6 @@ from requests import ConnectionError, Timeout
 from core.fiction import search, get_latest, get_latest_from_rss, get_book_details
 from helpers import InvalidParamsError, MaxRequestsTryError
 
-
 class Fiction:
     @staticmethod
     def on_get(req, resp):

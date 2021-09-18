@@ -1,6 +1,7 @@
 FICTION_RSS: "http://libgen.rs/fiction/rss"
 FICTION_LATEST: "http://libgen.rs/fiction/recent"
 FICTION_BASE_URL: "http://libgen.rs/fiction/?"
+LIBGEN_LC_URL: "http://libgen.lc/index.php?"
 FICTION_DETAILS_BASE_URL: "http://library.lol/fiction/"
 
 NON_FICTION_LATEST: "http://libgen.rs/rss/index.php"
@@ -8,9 +9,10 @@ NON_FICTION_BASE_URL: "http://libgen.rs/search.php?"
 NON_FICTION_DETAILS_URL: "http://library.lol/main/"
 
 IMAGE_SOURCE: "https://libgen.is"
+LIBGEN_LC_IMAGE_SOURCE: "http://libgen.lc"
 
 TIMEOUT: 10
-CACHE_TTL: 3600
+CACHE_TTL: 1800
 MAX_DETAILS_REQUESTS_TRY: 10
 MAX_REQUESTS_TRY: 20
 

@@ -1,3 +1,4 @@
+autopep8==1.5.7
 beautifulsoup4==4.9.3
 cachetools==4.2.2
 certifi==2021.5.30
@@ -8,11 +9,14 @@ gevent==21.8.0
 greenlet==1.1.1
 gunicorn==20.1.0
 idna==3.2
+iso639-lang==2.0.0
 lxml==4.6.3
+pycodestyle==2.7.0
 PyYAML==5.4.1
 requests==2.26.0
 six==1.16.0
 soupsieve==2.2.1
+toml==0.10.2
 urllib3==1.26.6
 zope.event==4.5.0
 zope.interface==5.4.0

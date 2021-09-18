@@ -5,17 +5,21 @@ from bs4 import BeautifulSoup
 from config import libgen_config as config
 from cachetools import cached, TTLCache
 from helpers import create_url, get_html_container, get_libgen_non_fiction_params, InvalidParamsError, checkIsbn, \
-    get_book_details_by_type
+    get_book_details_by_type, get_libgen_lc_requests_params
 
-cache = TTLCache(maxsize=128, ttl=config.CACHE_TTL)
+non_fiction_cache = TTLCache(maxsize=128, ttl=config.CACHE_TTL)
 
 
 def search(req_params):
     try:
-        params = get_libgen_non_fiction_params(req_params)
-        if req_params['view'] == 'simple':
+        if req_params['language'] is not None and req_params['language'] != 'all':
+            params = get_libgen_lc_requests_params(req_params)
+            result = get_books_filtered_language(params)
+        elif req_params['view'] == 'simple':
+            params = get_libgen_non_fiction_params(req_params)
             result = get_list_from_simple_view(params)
         elif req_params['view'] == 'detailed':
+            params = get_libgen_non_fiction_params(req_params)
             result = get_list_from_detailed_view(params)
         else:
             raise InvalidParamsError(['view'])
@@ -118,7 +122,8 @@ def get_list_from_simple_view(url_params):
     books = []
 
     try:
-        r = get_html_container(url, config.TIMEOUT, config.MAX_REQUESTS_TRY)
+        r = get_html_container(
+            url=url, timeout=config.TIMEOUT, max_requests_try=config.MAX_REQUESTS_TRY)
 
         html_text = r.text
         soup = BeautifulSoup(html_text, 'lxml')
@@ -193,7 +198,8 @@ def get_list_from_simple_view(url_params):
     except Exception as e:
         raise e
 
-@cached(cache=cache)
+
+@cached(cache=non_fiction_cache)
 def get_latest():
     results = {
         'total_item': 0,
@@ -301,3 +307,94 @@ def get_book_details_from_rss_entry(entries_summary):
 
 def get_book_details(md5: str):
     return get_book_details_by_type('non-fiction', md5)
+
+
+def get_books_filtered_language(params):
+    headers = {
+        'user-agent': '',
+        'Host': 'libgen.lc',
+        'Connection': 'keep-alive',
+        'Accept': "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Upgrade-Insecure-Requests": "1",
+    }
+    url = create_url(config.LIBGEN_LC_URL,
+                     params)
+    results = {
+        'total_item': 0,
+        'total_pages': 1,
+        'items': []
+    }
+    books = []
+    try:
+        resp = get_html_container(url=url, timeout=config.TIMEOUT,
+                                  max_requests_try=config.MAX_REQUESTS_TRY, headers=headers)
+        soup = BeautifulSoup(resp.text, 'lxml')
+
+        spans = soup.find_all("span", class_="badge badge-primary")
+
+        total_item = int(spans[1].text.strip())
+        table = soup.find("table", class_="table table-striped")
+        rows = table.find_all("tr")
+
+        # remove the header of the table
+        rows.pop(0)
+
+        for row in rows:
+            book = {}
+            data = row.find_all("td")
+
+            isbns = []
+            language = data[6].text.strip()
+            extension = data[8].text.strip()
+
+            for anchor in data[1].find_all('a'):
+                if anchor.text:
+                    title = anchor.text
+                    break
+
+            # remove the ISBN,Collection,edition from the title
+            extra_data = data[1].find(
+                "font", {'color': 'green'}).text.strip().split(';')
+            for _item in extra_data:
+                temp = _item.strip()
+                if checkIsbn(temp):
+                    isbns.append(temp)
+                elif checkIsbn(temp.replace('-', '')):
+                    isbns.append(temp.replace("-", ""))
+                title = title.replace(temp, "")
+
+            md5 = data[9].a['href'].strip().split("=")[-1]
+
+            book.update({
+                'libgenID': '',
+                'title': title.strip(),
+                'language': language,
+                'size': data[7].text.strip(),
+                'extension': extension,
+                'md5': md5,
+                'image': config.LIBGEN_LC_IMAGE_SOURCE + data[0].img['src'].strip(),
+                'nbrOfPages': data[5].text.strip(),
+                'series': '',
+                'source': '',
+                'details': {
+                    'authors': data[2].text.strip().split(','),
+                    'type': 'non-fiction',
+                    'publisher': data[3].text.strip(),
+                    'isbn': isbns,
+                    "series": "",
+                    'description': '',
+                    "download_links": [],
+                    'year': data[4].text.strip()
+                }
+            })
+            books.append(book)
+        results.update({
+            'total_item': total_item,
+            'total_pages': math.ceil(total_item / config.NON_FICTION_ITEMS_PER_PAGE),
+            'items': books
+        })
+        return results
+
+    except Exception as e:
+        raise e

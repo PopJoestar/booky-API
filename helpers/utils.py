@@ -3,7 +3,9 @@ from urllib.parse import urlencode
 
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
+from iso639 import Lang
 from requests import Session
+
 from config.libgen_config import FICTION_DETAILS_BASE_URL, IMAGE_SOURCE, MAX_DETAILS_REQUESTS_TRY, MAX_REQUESTS_TRY, \
     NON_FICTION_DETAILS_URL, TIMEOUT
 
@@ -16,30 +18,26 @@ def create_url(base_url, params):
     return result
 
 
-def get_html_container(url, timeout=10, max_requests_try=10):
+def get_html_container(url, timeout=10, max_requests_try=10, headers=None):
+    if headers is None:
+        headers = {
+            'user-agent': '',
+            'Referer': "http://libgen.rs/",
+            'Host': 'libgen.rs',
+            'Connection': 'keep-alive',
+            'Accept': "*/*",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Upgrade-Insecure-Requests": "1",
+        }
     ua = UserAgent()
     nbr_of_request = 0
-    headers = {
-        'user-agent': ua.random,
-        'Referer': "http://libgen.rs/",
-        'Host': 'libgen.rs',
-        'Connection': 'keep-alive',
-        'Accept': "*/*",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Upgrade-Insecure-Requests": "1",
-    }
+    headers['user-agent'] = ua.random
+
     try:
         with Session() as session:
             resp = session.get(url, headers=headers, timeout=timeout)
             while resp.status_code != 200 and nbr_of_request <= max_requests_try:
-                headers = {
-                    'user-agent': ua.random,
-                    'Referer': "http://libgen.rs/",
-                    'Host': 'libgen.rs',
-                    'Connection': 'keep-alive', 'Accept': "*/*",
-                    "Accept-Encoding": "gzip, deflate, br",
-                    "Upgrade-Insecure-Requests": "1"
-                }
+                headers['user-agent'] = ua.random
                 resp = session.get(url, headers=headers, timeout=timeout)
                 nbr_of_request = nbr_of_request + 1
         if nbr_of_request <= max_requests_try:
@@ -71,6 +69,28 @@ def get_libgen_fiction_params(params: dict):
             'wildcard': 1,
             'language': language,
             'format': _format,
+            'page': params['page'],
+        }
+
+    return result
+
+
+def get_libgen_lc_requests_params(params: dict):
+    if 'q' not in params or 'page' not in params or 'language' not in params:
+        from helpers.exceptions import InvalidParamsError
+        raise InvalidParamsError(['q(query)', 'page', 'language'])
+    else:
+        language = format_field(params, 'language').capitalize()
+        result = {
+            'req': params['q'] + ' languagecode:' + Lang(language).pt2b,
+            'columns[]': 't,a,s,y,p,i',
+            'objects[]': 'f,e,s,a,p,w',
+            'topics[]': 'l',
+            'res': 25,
+            'curetab': 'f',
+            'covers': 'on',
+            "gmode": "on",
+            "filesuns": "on",
             'page': params['page'],
         }
 

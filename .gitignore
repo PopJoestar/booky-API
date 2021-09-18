@@ -11,8 +11,10 @@
 # KDE directory preferences
 .directory
 
-.vscode
-.idea
+.vscode/
+.idea/
+windows-venv/
+
 
 # Linux trash folder which might appear on any partition or disk
 .Trash-*
@@ -133,7 +135,6 @@ celerybeat.pid
 .venv/
 env/
 venv/
-windows-venv/
 ENV/
 env.bak/
 venv.bak/

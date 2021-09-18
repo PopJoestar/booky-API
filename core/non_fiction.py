@@ -347,7 +347,6 @@ def get_books_filtered_language(params):
             isbns = []
             language = data[6].text.strip()
             extension = data[8].text.strip()
-
             for anchor in data[1].find_all('a'):
                 if anchor.text:
                     title = anchor.text
@@ -355,14 +354,15 @@ def get_books_filtered_language(params):
 
             # remove the ISBN,Collection,edition from the title
             extra_data = data[1].find(
-                "font", {'color': 'green'}).text.strip().split(';')
-            for _item in extra_data:
-                temp = _item.strip()
-                if checkIsbn(temp):
-                    isbns.append(temp)
-                elif checkIsbn(temp.replace('-', '')):
-                    isbns.append(temp.replace("-", ""))
-                title = title.replace(temp, "")
+                "font", {'color': 'green'})
+            if extra_data:
+                for _item in extra_data.text.strip().split(';'):
+                    temp = _item.strip()
+                    if checkIsbn(temp):
+                        isbns.append(temp)
+                    elif checkIsbn(temp.replace('-', '')):
+                        isbns.append(temp.replace("-", ""))
+                    title = title.replace(temp, "")
 
             md5 = data[9].a['href'].strip().split("=")[-1]
 

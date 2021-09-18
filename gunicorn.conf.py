@@ -6,4 +6,5 @@ workers = cpu_count() * 2 + 1
 worker_class = 'gevent'
 worker_connections = 100
 timeout = 30
+debug = True
 reload = True

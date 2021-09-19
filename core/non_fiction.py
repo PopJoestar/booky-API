@@ -335,65 +335,67 @@ def get_books_filtered_language(params):
 
         total_item = int(spans[1].text.strip())
         table = soup.find("table", class_="table table-striped")
-        rows = table.find_all("tr")
+        if table:
+            rows = table.find_all("tr")
 
-        # remove the header of the table
-        rows.pop(0)
+            # remove the header of the table
+            rows.pop(0)
 
-        for row in rows:
-            book = {}
-            data = row.find_all("td")
+            for row in rows:
+                book = {}
+                data = row.find_all("td")
 
-            isbns = []
-            language = data[6].text.strip()
-            extension = data[8].text.strip()
-            for anchor in data[1].find_all('a'):
-                if anchor.text:
-                    title = anchor.text
-                    break
+                isbns = []
+                language = data[6].text.strip()
+                extension = data[8].text.strip()
+                for anchor in data[1].find_all('a'):
+                    if anchor.text:
+                        title = anchor.text
+                        break
 
-            # remove the ISBN,Collection,edition from the title
-            extra_data = data[1].find(
-                "font", {'color': 'green'})
-            if extra_data:
-                for _item in extra_data.text.strip().split(';'):
-                    temp = _item.strip()
-                    if checkIsbn(temp):
-                        isbns.append(temp)
-                    elif checkIsbn(temp.replace('-', '')):
-                        isbns.append(temp.replace("-", ""))
-                    title = title.replace(temp, "")
+                # remove the ISBN,Collection,edition from the title
+                extra_data = data[1].find(
+                    "font", {'color': 'green'})
+                if extra_data:
+                    for _item in extra_data.text.strip().split(';'):
+                        temp = _item.strip()
+                        if checkIsbn(temp):
+                            isbns.append(temp)
+                        elif checkIsbn(temp.replace('-', '')):
+                            isbns.append(temp.replace("-", ""))
+                        title = title.replace(temp, "")
 
-            md5 = data[9].a['href'].strip().split("=")[-1]
+                md5 = data[9].a['href'].strip().split("=")[-1]
 
-            book.update({
-                'libgenID': '',
-                'title': title.strip(),
-                'language': language,
-                'size': data[7].text.strip(),
-                'extension': extension,
-                'md5': md5,
-                'image': config.LIBGEN_LC_IMAGE_SOURCE + data[0].img['src'].strip(),
-                'nbrOfPages': data[5].text.strip(),
-                'series': '',
-                'source': '',
-                'details': {
-                    'authors': data[2].text.strip().split(','),
-                    'type': 'non-fiction',
-                    'publisher': data[3].text.strip(),
-                    'isbn': isbns,
-                    "series": "",
-                    'description': '',
-                    "download_links": [],
-                    'year': data[4].text.strip()
-                }
+                book.update({
+                    'libgenID': '',
+                    'title': title.strip(),
+                    'language': language,
+                    'size': data[7].text.strip(),
+                    'extension': extension,
+                    'md5': md5,
+                    'image': config.LIBGEN_LC_IMAGE_SOURCE + data[0].img['src'].strip(),
+                    'nbrOfPages': data[5].text.strip(),
+                    'series': '',
+                    'source': '',
+                    'details': {
+                        'authors': data[2].text.strip().split(','),
+                        'type': 'non-fiction',
+                        'publisher': data[3].text.strip(),
+                        'isbn': isbns,
+                        "series": "",
+                        'description': '',
+                        "download_links": [],
+                        'year': data[4].text.strip()
+                    }
+                })
+                books.append(book)
+            results.update({
+                'total_item': total_item,
+                'total_pages': math.ceil(total_item / config.NON_FICTION_ITEMS_PER_PAGE),
+                'items': books
             })
-            books.append(book)
-        results.update({
-            'total_item': total_item,
-            'total_pages': math.ceil(total_item / config.NON_FICTION_ITEMS_PER_PAGE),
-            'items': books
-        })
+
         return results
 
     except Exception as e:

@@ -1,11 +1,11 @@
 import math
 
 from bs4 import BeautifulSoup
+from cachetools import cached, TTLCache
 
 from config import libgen_config as config
-from cachetools import cached, TTLCache
 from helpers import create_url, get_html_container, get_libgen_non_fiction_params, InvalidParamsError, checkIsbn, \
-    get_book_details_by_type, get_libgen_lc_requests_params
+    get_book_details_by_type, get_libgen_lc_requests_params, parse_libgen_lc_result
 
 non_fiction_cache = TTLCache(maxsize=128, ttl=config.CACHE_TTL)
 
@@ -320,83 +320,9 @@ def get_books_filtered_language(params):
     }
     url = create_url(config.LIBGEN_LC_URL,
                      params)
-    results = {
-        'total_item': 0,
-        'total_pages': 1,
-        'items': []
-    }
-    books = []
     try:
         resp = get_html_container(url=url, timeout=config.TIMEOUT,
                                   max_requests_try=config.MAX_REQUESTS_TRY, headers=headers)
-        soup = BeautifulSoup(resp.text, 'lxml')
-
-        spans = soup.find_all("span", class_="badge badge-primary")
-
-        total_item = int(spans[1].text.strip())
-        table = soup.find("table", class_="table table-striped")
-        if table:
-            rows = table.find_all("tr")
-
-            # remove the header of the table
-            rows.pop(0)
-
-            for row in rows:
-                book = {}
-                data = row.find_all("td")
-
-                isbns = []
-                language = data[6].text.strip()
-                extension = data[8].text.strip()
-                for anchor in data[1].find_all('a'):
-                    if anchor.text:
-                        title = anchor.text
-                        break
-
-                # remove the ISBN,Collection,edition from the title
-                extra_data = data[1].find(
-                    "font", {'color': 'green'})
-                if extra_data:
-                    for _item in extra_data.text.strip().split(';'):
-                        temp = _item.strip()
-                        if checkIsbn(temp):
-                            isbns.append(temp)
-                        elif checkIsbn(temp.replace('-', '')):
-                            isbns.append(temp.replace("-", ""))
-                        title = title.replace(temp, "")
-
-                md5 = data[9].a['href'].strip().split("=")[-1]
-
-                book.update({
-                    'libgenID': '',
-                    'title': title.strip(),
-                    'language': language,
-                    'size': data[7].text.strip(),
-                    'extension': extension,
-                    'md5': md5,
-                    'image': config.LIBGEN_LC_IMAGE_SOURCE + data[0].img['src'].strip(),
-                    'nbrOfPages': data[5].text.strip(),
-                    'series': '',
-                    'source': '',
-                    'details': {
-                        'authors': data[2].text.strip().split(','),
-                        'type': 'non-fiction',
-                        'publisher': data[3].text.strip(),
-                        'isbn': isbns,
-                        "series": "",
-                        'description': '',
-                        "download_links": [],
-                        'year': data[4].text.strip()
-                    }
-                })
-                books.append(book)
-            results.update({
-                'total_item': total_item,
-                'total_pages': math.ceil(total_item / config.NON_FICTION_ITEMS_PER_PAGE),
-                'items': books
-            })
-
-        return results
-
+        return parse_libgen_lc_result(resp)
     except Exception as e:
         raise e

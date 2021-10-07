@@ -1,3 +1,4 @@
+import math
 from re import compile, sub
 from urllib.parse import urlencode
 
@@ -7,7 +8,7 @@ from iso639 import Lang
 from requests import Session
 
 from config.libgen_config import FICTION_DETAILS_BASE_URL, IMAGE_SOURCE, MAX_DETAILS_REQUESTS_TRY, MAX_REQUESTS_TRY, \
-    NON_FICTION_DETAILS_URL, TIMEOUT
+    NON_FICTION_DETAILS_URL, TIMEOUT, LIBGEN_LC_IMAGE_SOURCE
 
 
 def create_url(base_url, params):
@@ -75,24 +76,34 @@ def get_libgen_fiction_params(params: dict):
     return result
 
 
-def get_libgen_lc_requests_params(params: dict):
+def get_libgen_lc_requests_params(params: dict, topics: str = 'l', google_mode: bool = True):
+    _topics = topics.split(',')
     if 'q' not in params or 'page' not in params or 'language' not in params:
         from helpers.exceptions import InvalidParamsError
         raise InvalidParamsError(['q(query)', 'page', 'language'])
     else:
         language = format_field(params, 'language').capitalize()
-        result = {
-            'req': params['q'] + ' languagecode:' + Lang(language).pt2b,
-            'columns[]': 't,a,s,y,p,i',
-            'objects[]': 'f,e,s,a,p,w',
-            'topics[]': 'l',
-            'res': 25,
-            'curetab': 'f',
-            'covers': 'on',
-            "gmode": "on",
-            "filesuns": "on",
-            'page': params['page'],
-        }
+        if google_mode:
+            req = f"{params['q']} languagecode:{Lang(language).pt2b}"
+        else:
+            req = params['q']
+        result = [
+            ('req', req),
+            ('columns[]', 't,a,s,y,p,i'),
+            ('objects[]', 'f'),
+            ('objects[]', 'e'),
+            ('objects[]', 's'),
+            ('objects[]', 'a'),
+            ('objects[]', 'p'),
+            ('topics[]', _topics[0]),
+            ('topics[]', _topics[-1]),
+            ('res', 25),
+            ('curetab', 'f'),
+            ('covers', 'on'),
+            ("gmode", "on"),
+            ("filesuns", "off"),
+            ('page', params['page']),
+        ]
 
     return result
 
@@ -107,7 +118,7 @@ def get_libgen_non_fiction_params(params: dict):
         result = {
             'req': params['q'],
             'open': 0,
-            'res': 2,
+            'res': 25,
             'view': params['view'],
             'phrase': 0,
             'column': 'def',
@@ -285,3 +296,85 @@ def get_book_details_by_type(_type: str, md5: str):
                 if i:
                     result[key] = temp[key]
     return result
+
+
+def parse_libgen_lc_result(resp):
+    results = {
+        'total_item': 0,
+        'total_pages': 1,
+        'items': []
+    }
+    books = []
+    html_text = resp.text
+    title = ''
+    soup = BeautifulSoup(html_text, 'lxml')
+
+    spans = soup.find_all("span", class_="badge badge-primary")
+
+    total_item = int(spans[0].text.strip())
+    table = soup.find("table", class_="table table-striped")
+    if table:
+        rows = table.find_all("tr")
+
+        # remove the header of the table
+        rows.pop(0)
+
+        for row in rows:
+            book = {}
+            data = row.find_all("td")
+
+            isbns = []
+            language = data[6].text.strip()
+            extension = data[8].text.strip()
+            type_container = data[1].find(
+                'span', class_="badge badge-secondary").text.strip()
+            _type = 'non-fiction' if 'l' in type_container else 'fiction'
+            for anchor in data[1].find_all('a'):
+                if anchor.text:
+                    title = anchor.text
+                    break
+
+            # remove the ISBN,Collection,edition from the title
+            extra_data = data[1].find(
+                "font", {'color': 'green'})
+            if extra_data:
+                for _item in extra_data.text.strip().split(';'):
+                    temp = _item.strip()
+                    if checkIsbn(temp):
+                        isbns.append(temp)
+                    elif checkIsbn(temp.replace('-', '')):
+                        isbns.append(temp.replace("-", ""))
+                    title = title.replace(temp, "")
+
+            md5 = data[9].a['href'].strip().split("=")[-1]
+
+            book.update({
+                'libgenID': '',
+                'title': title.strip(),
+                'language': language,
+                'size': data[7].text.strip(),
+                'extension': extension,
+                'md5': md5,
+                'image': LIBGEN_LC_IMAGE_SOURCE + data[0].img['src'].strip(),
+                'nbrOfPages': data[5].text.strip(),
+                'series': '',
+                'source': '',
+                'details': {
+                    'authors': data[2].text.strip().split(','),
+                    'type': _type,
+                    'publisher': data[3].text.strip(),
+                    'isbn': isbns,
+                    "series": "",
+                    'description': '',
+                    "download_links": [],
+                    'year': data[4].text.strip()
+                }
+            })
+            books.append(book)
+        total_pages = math.ceil(total_item / 25)
+        results.update({
+            'total_item': total_item,
+            'total_pages': total_pages if total_pages < 40 else 40,
+            'items': books
+        })
+    return results

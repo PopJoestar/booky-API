@@ -1,15 +1,17 @@
 import math
 
 from bs4 import BeautifulSoup
+from cachetools import cached, TTLCache
 from fake_useragent.fake import UserAgent
 from gevent import spawn, joinall
 from requests import Session
+
 from config import libgen_config as config
-from cachetools import cached, TTLCache
 from helpers import get_details, get_libgen_fiction_params, InvalidParamsError, get_book_details_by_type, create_url, \
     get_html_container
-    
+
 cache = TTLCache(maxsize=128, ttl=config.CACHE_TTL)
+
 
 def search(req_params):
     try:
@@ -117,7 +119,7 @@ def get_books_details(books: list):
     ua = UserAgent()
     book_details = []
     results = []
-    
+
     with Session() as session:
         threads = {spawn(
             get_details, session, book['md5'], book['details']['type'], ua): book for book in books}
@@ -201,10 +203,6 @@ def parse_libgen_response(resp):
     if total_items_container:
         total_items = int(total_items_container.text.strip().split(" ")[
                               0].replace(non_break_space, ''))
-        results.update({
-            'total_item': total_items,
-            'total_pages': math.ceil(total_items / config.FICTION_ITEMS_PER_PAGE)
-        })
     else:
         return results
 
@@ -245,8 +243,13 @@ def parse_libgen_response(resp):
                 })
                 books.append(book)
 
-        results['items'] = books
-
+        results.update(
+            {
+                'items': books,
+                'total_item': total_items,
+                'total_pages': math.ceil(total_items / config.FICTION_ITEMS_PER_PAGE)
+            }
+        )
     return results
 
 

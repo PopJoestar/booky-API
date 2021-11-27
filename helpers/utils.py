@@ -84,7 +84,7 @@ def get_libgen_lc_requests_params(params: dict, topics: str = 'l', google_mode: 
     else:
         language = format_field(params, 'language').capitalize()
         if google_mode:
-            req = f"{params['q']} languagecode:{Lang(language).pt2b}"
+            req = f"{params['q']} lang:{Lang(language).pt2b}"
         else:
             req = params['q']
         result = [

@@ -324,7 +324,7 @@ def parse_libgen_lc_result(resp):
             data = row.find_all("td")
 
             isbns = []
-            language = data[6].text.strip()
+            language = data[5].text.strip()
             extension = data[8].text.strip()
             type_container = data[1].find(
                 'span', class_="badge badge-secondary").text.strip()
@@ -356,7 +356,7 @@ def parse_libgen_lc_result(resp):
                 'extension': extension,
                 'md5': md5,
                 'image': LIBGEN_LC_IMAGE_SOURCE + data[0].img['src'].strip(),
-                'nbrOfPages': data[5].text.strip(),
+                'nbrOfPages': data[6].text.strip(),
                 'series': '',
                 'source': '',
                 'details': {
